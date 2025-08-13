@@ -1,7 +1,7 @@
-import { Document, Paragraph, TextRun, HeadingLevel, Packer, AlignmentType, Table, TableRow, TableCell, BorderStyle } from 'docx';
+import { Document, Paragraph, TextRun, HeadingLevel, Packer, Table, TableRow, TableCell, BorderStyle } from 'docx';
 import { marked } from 'marked';
 import { logger } from 'firebase-functions/v2';
-import type { Token, Tokens } from 'marked';
+import type { Tokens } from 'marked';
 
 const headingLevelMap = {
   1: HeadingLevel.HEADING_1,
@@ -56,10 +56,10 @@ function processFormattedText(text: string): TextRun[] {
 
 export async function convertMarkdownToDocx(markdownContent: string): Promise<Buffer> {
   try {
-    // Log sample of the markdown for debugging
+    // Log sample of the markdown for debugging (limited for security)
     logger.info('Input markdown sample:', {
-      sample: markdownContent.substring(0, Math.min(200, markdownContent.length)),
-      length: markdownContent.length
+      length: markdownContent.length,
+      firstLineLength: markdownContent.split('\n')[0]?.length || 0
     });
 
     // Parse markdown to tokens

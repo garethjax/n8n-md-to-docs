@@ -12,8 +12,7 @@ export async function convertMarkdownToGoogleDoc(
   try {
     logger.info('Starting markdown to Google Doc conversion', { 
       markdownLength: markdownContent.length,
-      fileName,
-      sampleMarkdown: markdownContent.substring(0, 100) // Log sample of markdown for debugging
+      fileName
     });
     
     // Strip markdown code block wrapper if present
@@ -48,7 +47,8 @@ export async function convertMarkdownToGoogleDoc(
 
     logger.info('Uploading document to Google Drive', { 
       fileName, 
-      tokenPrefix: accessToken.substring(0, 10) + '...',
+      // Never log access tokens for security
+      tokenPresent: !!accessToken,
       bufferSize: docxBuffer.length
     });
     

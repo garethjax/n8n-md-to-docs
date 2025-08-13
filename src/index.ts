@@ -10,16 +10,31 @@ import { convertMarkdownToDocx } from './services/docxConverter';
 const app = express();
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Limit body size for security
 app.use(cors({ origin: true }));
+
+// Security middleware
+app.use((_req: Request, res: Response, next: any) => {
+  // Set security headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 
 app.post('/', async (req: Request, res: Response) => {
   try {
     logger.info('Received request:', {
-      body: req.body,
+      body: {
+        ...req.body,
+        // Don't log potentially sensitive markdown content
+        output: req.body.output ? `[${req.body.output.length} characters]` : undefined
+      },
       headers: {
         ...req.headers,
-        authorization: req.headers.authorization ? `${req.headers.authorization.substring(0, 20)}...` : undefined
+        // Never log authorization headers for security
+        authorization: req.headers.authorization ? '[REDACTED]' : undefined
       }
     });
 
@@ -33,11 +48,23 @@ app.post('/', async (req: Request, res: Response) => {
       const authHeader = req.headers.authorization;
       const fileName = request.fileName || 'Converted from Markdown';
       
+      // Validate and sanitize fileName
+      let sanitizedFileName = fileName;
+      if (sanitizedFileName) {
+        // Remove potentially dangerous characters and limit length
+        sanitizedFileName = sanitizedFileName.replace(/[<>:"/\\|?*]/g, '').substring(0, 255);
+        if (sanitizedFileName.length === 0) {
+          sanitizedFileName = 'Converted from Markdown';
+        }
+      } else {
+        sanitizedFileName = 'Converted from Markdown';
+      }
+      
       logger.info(`Request ${index + 1} validation:`, {
         hasMarkdown: !!markdownContent,
         contentLength: markdownContent?.length,
         hasAuthHeader: !!authHeader,
-        fileName
+        fileName: sanitizedFileName
       });
 
       // Validate markdown content
@@ -53,6 +80,15 @@ app.post('/', async (req: Request, res: Response) => {
         } as ErrorResponse;
       }
 
+      // Validate markdown content length for security (10MB limit)
+      if (markdownContent.length > 10 * 1024 * 1024) {
+        logger.error(`Request ${index + 1}: Markdown content too large`);
+        return {
+          error: 'Markdown content too large. Maximum size is 10MB.',
+          status: 400
+        } as ErrorResponse;
+      }
+
       // Validate authorization
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         logger.error(`Request ${index + 1}: Invalid authorization`);
@@ -65,8 +101,8 @@ app.post('/', async (req: Request, res: Response) => {
       const accessToken = authHeader.split(' ')[1];
 
       try {
-        logger.info(`Request ${index + 1}: Starting conversion for "${fileName}"`);
-        const result = await convertMarkdownToGoogleDoc(markdownContent, accessToken, fileName);
+        logger.info(`Request ${index + 1}: Starting conversion for "${sanitizedFileName}"`);
+        const result = await convertMarkdownToGoogleDoc(markdownContent, accessToken, sanitizedFileName);
         logger.info(`Request ${index + 1}: Conversion successful:`, result);
         
         return {
@@ -83,7 +119,7 @@ app.post('/', async (req: Request, res: Response) => {
         
         return {
           error: 'Failed to convert markdown to Google Doc',
-          details: error.message,
+          details: 'Document conversion failed. Please check your input and try again.',
           status: error.status || 500
         } as ErrorResponse;
       }
@@ -110,7 +146,7 @@ app.post('/', async (req: Request, res: Response) => {
     
     return res.status(500).json({
       error: 'Failed to process requests',
-      details: error.message
+      details: 'Internal server error. Please try again later.'
     } as ErrorResponse);
   }
 });
@@ -118,6 +154,11 @@ app.post('/', async (req: Request, res: Response) => {
 // Add a test endpoint for debugging conversion issues
 app.post('/test', async (req: Request, res: Response) => {
   try {
+    // Only allow test endpoint in development/local environments
+    if (process.env.NODE_ENV === 'production' || process.env.FUNCTIONS_EMULATOR !== 'true') {
+      return res.status(404).json({ error: 'Endpoint not found' });
+    }
+    
     logger.info('Received test request');
     
     const { markdown, fileName } = req.body;
@@ -125,28 +166,30 @@ app.post('/test', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing markdown content' });
     }
     
-    // Don't require auth for test endpoint (only in development)
-    if (process.env.NODE_ENV !== 'production') {
-      logger.info('Test conversion:', {
-        markdownSample: markdown.substring(0, 100),
-        markdownLength: markdown.length
-      });
-      
-      const result = await convertMarkdownToDocx(markdown);
-      logger.info('Test conversion complete', {
-        resultSize: result.length
-      });
-      
-      // Return the DOCX buffer directly for testing
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName || 'test.docx'}"`);
-      return res.send(Buffer.from(result));
-    } else {
-      return res.status(403).json({ error: 'Test endpoint not available in production' });
+    // Validate markdown content length for security
+    if (markdown.length > 100000) { // 100KB limit
+      return res.status(400).json({ error: 'Markdown content too large' });
     }
+    
+    logger.info('Test conversion:', {
+      markdownLength: markdown.length,
+      fileName: fileName || 'test.docx'
+    });
+    
+    const result = await convertMarkdownToDocx(markdown);
+    logger.info('Test conversion complete', {
+      resultSize: result.length
+    });
+    
+    // Return the DOCX buffer directly for testing
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName || 'test.docx'}"`);
+    return res.send(Buffer.from(result));
   } catch (error: any) {
     logger.error('Error in test endpoint:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ 
+      error: 'Internal server error. Please try again later.' 
+    });
   }
 });
 
