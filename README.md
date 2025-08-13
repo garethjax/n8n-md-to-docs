@@ -51,10 +51,13 @@ Watch how the converter works in this demonstration:
 
 - Serverless architecture using Firebase Functions
 - OAuth2 authentication for Google Docs API
+- **Comprehensive security measures** (see [SECURITY.md](SECURITY.md))
 - Clean and consistent document formatting
 - Maintains document hierarchy and styling
 - Handles complex Markdown structures
 - Perfect for n8n workflows with LLM outputs
+- **Rate limiting and input validation**
+- **Production-ready security headers**
 
 ## Installation
 
@@ -106,6 +109,17 @@ Key Configuration Points:
   2. `fileName`: Name for the generated Google Doc (supports expressions)
 
 The service will return a response with the Google Doc URL and ID.
+
+## Security
+
+This service implements comprehensive security measures including:
+- Input validation and sanitization
+- Rate limiting (100 requests per 15 minutes per IP)
+- OAuth token validation
+- Security headers and CORS protection
+- Error message sanitization
+
+For detailed security information, see [SECURITY.md](SECURITY.md).
 
 ## Author
 
