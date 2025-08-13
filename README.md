@@ -56,6 +56,18 @@ Watch how the converter works in this demonstration:
 - Handles complex Markdown structures
 - Perfect for n8n workflows with LLM outputs
 
+## Security
+
+This service is designed with security in mind to ensure your credentials and data are protected. Here are the key security measures in place:
+
+- **HTTPS Enforcement**: The service is hosted on Firebase Hosting, which enforces HTTPS for all connections. This means that all data transmitted between your n8n instance and the service is encrypted, protecting it from Man-in-the-Middle (MITM) attacks.
+
+- **Credential Handling**: The service uses your n8n Google OAuth token, which is passed as a Bearer token in the `Authorization` header. This token is used exclusively to make API calls to the Google Docs API on your behalf. It is not stored or logged by the service.
+
+- **Open Source and Auditable**: The complete source code for this service is available on GitHub. You can review the code to verify how it works and ensure that it meets your security standards.
+
+- **Self-Hosting for Maximum Control**: If you prefer to have complete control over the execution environment, you can fork this repository and deploy the service to your own Firebase project. This allows you to manage your own security policies and configurations.
+
 ## Installation
 
 1. Clone the repository
