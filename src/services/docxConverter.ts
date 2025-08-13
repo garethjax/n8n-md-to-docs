@@ -1,7 +1,7 @@
-import { Document, Paragraph, TextRun, HeadingLevel, Packer, AlignmentType, Table, TableRow, TableCell, BorderStyle } from 'docx';
+import { Document, Paragraph, TextRun, HeadingLevel, Packer, Table, TableRow, TableCell, BorderStyle } from 'docx';
 import { marked } from 'marked';
 import { logger } from 'firebase-functions/v2';
-import type { Token, Tokens } from 'marked';
+import type { Tokens } from 'marked';
 
 const headingLevelMap = {
   1: HeadingLevel.HEADING_1,
@@ -12,15 +12,28 @@ const headingLevelMap = {
   6: HeadingLevel.HEADING_6
 };
 
+// Helper function to sanitize text input
+function sanitizeText(text: string): string {
+  // Remove potentially dangerous characters and normalize whitespace
+  return text
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters
+    .replace(/\r\n/g, '\n') // Normalize line endings
+    .replace(/\r/g, '\n')
+    .trim();
+}
+
 // Helper function to process text with formatting
 function processFormattedText(text: string): TextRun[] {
+  // Sanitize input text first
+  const sanitizedText = sanitizeText(text);
+  
   // Process bold, italic, and code formatting
-  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
+  const parts = sanitizedText.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
   return parts.filter(part => part.trim() !== '').map((part: string) => {
     // Bold: **text**
     if (part.startsWith('**') && part.endsWith('**')) {
       return new TextRun({
-        text: part.slice(2, -2),
+        text: sanitizeText(part.slice(2, -2)),
         bold: true,
         font: 'Arial',
         size: 24
@@ -29,7 +42,7 @@ function processFormattedText(text: string): TextRun[] {
     // Italic: *text*
     else if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**')) {
       return new TextRun({
-        text: part.slice(1, -1),
+        text: sanitizeText(part.slice(1, -1)),
         italics: true,
         font: 'Arial',
         size: 24
@@ -38,7 +51,7 @@ function processFormattedText(text: string): TextRun[] {
     // Code: `text`
     else if (part.startsWith('`') && part.endsWith('`')) {
       return new TextRun({
-        text: part.slice(1, -1),
+        text: sanitizeText(part.slice(1, -1)),
         font: 'Courier New',
         size: 24
       });
@@ -46,7 +59,7 @@ function processFormattedText(text: string): TextRun[] {
     // Regular text
     else {
       return new TextRun({
-        text: part,
+        text: sanitizeText(part),
         font: 'Arial',
         size: 24
       });
@@ -56,14 +69,17 @@ function processFormattedText(text: string): TextRun[] {
 
 export async function convertMarkdownToDocx(markdownContent: string): Promise<Buffer> {
   try {
+    // Sanitize the input markdown content
+    const sanitizedMarkdown = sanitizeText(markdownContent);
+    
     // Log sample of the markdown for debugging
     logger.info('Input markdown sample:', {
-      sample: markdownContent.substring(0, Math.min(200, markdownContent.length)),
-      length: markdownContent.length
+      sample: sanitizedMarkdown.substring(0, Math.min(200, sanitizedMarkdown.length)),
+      length: sanitizedMarkdown.length
     });
 
     // Parse markdown to tokens
-    const tokens = marked.lexer(markdownContent);
+    const tokens = marked.lexer(sanitizedMarkdown);
     logger.info(`Parsed ${tokens.length} markdown tokens`);
     
     // Debug first few tokens to understand the structure
@@ -107,7 +123,7 @@ export async function convertMarkdownToDocx(markdownContent: string): Promise<Bu
           
           children.push(
             new Paragraph({
-              text: headingToken.text,
+              text: sanitizeText(headingToken.text),
               heading: headingLevelMap[headingToken.depth as keyof typeof headingLevelMap],
               spacing: {
                 before: 200,

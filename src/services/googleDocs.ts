@@ -47,8 +47,7 @@ export async function convertMarkdownToGoogleDoc(
     });
 
     logger.info('Uploading document to Google Drive', { 
-      fileName, 
-      tokenPrefix: accessToken.substring(0, 10) + '...',
+      fileName,
       bufferSize: docxBuffer.length
     });
     
@@ -99,7 +98,7 @@ export async function convertMarkdownToGoogleDoc(
         });
       } catch (docError) {
         logger.warn('Could not verify document content (not critical)', { 
-          error: docError instanceof Error ? docError.message : 'Unknown error' 
+          errorType: docError instanceof Error ? docError.constructor.name : 'Unknown'
         });
       }
 
@@ -111,17 +110,25 @@ export async function convertMarkdownToGoogleDoc(
       };
     } catch (driveError: any) {
       logger.error('Error in Google Drive API:', {
-        message: driveError.message,
-        status: driveError.status || driveError.code,
-        details: driveError.errors || driveError.stack
+        errorType: driveError.constructor.name,
+        statusCode: driveError.status || driveError.code,
+        hasMessage: !!driveError.message
       });
-      throw driveError;
+      
+      // Handle specific Google API errors
+      if (driveError.status === 401 || driveError.code === 401) {
+        throw { status: 401, message: 'Invalid or expired access token' };
+      } else if (driveError.status === 403 || driveError.code === 403) {
+        throw { status: 403, message: 'Insufficient permissions for Google Drive access' };
+      } else {
+        throw { status: 500, message: 'Google Drive API error' };
+      }
     }
   } catch (error: any) {
     logger.error('Error in document creation process:', {
-      message: error.message,
-      status: error.status || error.code || 500,
-      details: error.errors || error.stack
+      errorType: error.constructor.name,
+      statusCode: error.status || error.code || 500,
+      hasMessage: !!error.message
     });
     throw error;
   }

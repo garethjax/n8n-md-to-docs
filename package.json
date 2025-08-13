@@ -1,7 +1,7 @@
 {
   "name": "markdown-to-gdocs-function",
-  "version": "1.0.0",
-  "description": "Firebase Function to convert Markdown to Google Docs",
+  "version": "1.1.0",
+  "description": "Secure Firebase Function to convert Markdown to Google Docs with comprehensive security measures",
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
@@ -12,7 +12,10 @@
     "start": "bun run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "dev": "bun --watch src/index.ts"
+    "dev": "bun --watch src/index.ts",
+    "security-audit": "npm audit",
+    "security-test": "node security-test.js",
+    "type-check": "npx tsc --noEmit"
   },
   "engines": {
     "node": "22"
@@ -21,7 +24,7 @@
     "cors": "^2.8.5",
     "docx": "^8.5.0",
     "express": "^4.18.2",
-    "firebase-admin": "^11.11.0",
+    "firebase-admin": "^13.4.0",
     "firebase-functions": "^4.5.0",
     "googleapis": "^128.0.0",
     "marked": "^11.1.0"
@@ -34,5 +37,13 @@
     "bun-types": "latest",
     "firebase-functions-test": "^3.1.0"
   },
+  "keywords": [
+    "n8n",
+    "markdown",
+    "google-docs",
+    "firebase",
+    "security",
+    "converter"
+  ],
   "private": true
 }
